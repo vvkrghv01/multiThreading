@@ -1,10 +1,35 @@
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ReentrantExample {
     private  final Lock lock = new ReentrantLock(true);
     //if a thread has acquired a lock it can again acquire lock means reentrant to avoid deadlock
     //during reentrancy count has maintained to check how many times lock has acquired by a thread in order to figure out how many times lock has to unlock
+    private final ReadWriteLock lock1 = new ReentrantReadWriteLock();//
+    private final Lock readLock = lock1.readLock();
+    private final Lock writeLock = lock1.writeLock();
+    private int count = 0;
+
+    public void increment(){
+        writeLock.lock();
+        try{
+            count++;
+            System.out.println("Count increment by "+Thread.currentThread().getName()+" to " + count);
+        }finally {
+            writeLock.unlock();
+        }
+    }
+    private int getCount() {
+        readLock.lock();
+        try {
+
+            return count;
+        }finally {
+            readLock.unlock();
+        }
+    }
 
     public void outerMethod(){
         lock.lock();//other threads can not enter into this method because thread 1 has acquired lock. Other Threads are in waiting or blocked state.
@@ -41,7 +66,7 @@ public class ReentrantExample {
 
     public static void main(String[] args) {
         ReentrantExample obj = new ReentrantExample();
-        //obj.outerMethod();
+       // obj.outerMethod();
         //reentrancy also used by synchronized keyword
 
         //Now  time to look at the fairness of locks
@@ -55,9 +80,9 @@ public class ReentrantExample {
         Thread t2 = new Thread(task,"Thread 2");
         Thread t3 = new Thread(task,"Thread 3");
 
-        t1.start();
-        t2.start();
-        t3.start();
+//        t1.start();
+//        t2.start();
+//        t3.start();
 
         //Although these threads get executed randomly no fix ordering is there and this might be possible if there are multiple threads few threads could
         //not get the cpu time for execution , to avoid this we pass the true flag in reentrant lock constructor.
@@ -70,6 +95,37 @@ public class ReentrantExample {
         3.Provides interrupt ability.
         4.read/write blocking.
          */
+        Runnable write_task = new Runnable() {
+            @Override
+            public void run() {
+               for(int i = 0; i < 10; i++){
+                   obj.increment();
+                  // System.out.println(Thread.currentThread().getName() + " incremented");
+               }
+
+            }
+        };
+        Runnable read_task = new Runnable() {
+            @Override
+            public void run() {
+                for(int i = 0; i < 10; i++) System.out.println(Thread.currentThread().getName() +" "+obj.getCount());
+            }
+        };
+        Thread th = new Thread(write_task,"Thread th");
+        Thread th1 = new Thread(read_task,"Thread th1");
+        Thread th2 = new Thread(read_task,"Thread th2");
+        th.start();
+        th1.start();
+        th2.start();
+
+        try{
+            th.join();
+            th1.join();
+            th2.join();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println(obj.getCount());
 
 
     }
